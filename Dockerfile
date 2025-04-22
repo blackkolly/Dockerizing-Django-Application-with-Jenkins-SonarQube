@@ -3,7 +3,13 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --user -r requirements.txt
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential && \
+    pip install --user -r requirements.txt && \
+    apt-get remove -y build-essential && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Runtime stage
 FROM python:3.11-slim
@@ -22,9 +28,11 @@ USER appuser
 COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 COPY --chown=appuser:appuser . .
 
-ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PATH="/home/appuser/.local/bin:${PATH}"
 ENV PYTHONPATH=/app
 ENV DJANGO_SETTINGS_MODULE=sample_app.settings.production
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 RUN python manage.py collectstatic --noinput
 
